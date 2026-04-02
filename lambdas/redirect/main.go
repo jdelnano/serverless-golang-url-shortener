@@ -51,7 +51,6 @@ func handleRequest(request events.APIGatewayProxyRequest) (events.APIGatewayProx
 	}
 	// perform GetItem call
 	resp, err := svc.GetItem(params)
-
 	if err != nil {
 		return events.APIGatewayProxyResponse{Body: "An error was encountered reading from DynamoDB.", StatusCode: 500}, err
 	}
@@ -74,7 +73,7 @@ func handleRequest(request events.APIGatewayProxyRequest) (events.APIGatewayProx
 
 	// redirect to long URL
 	return events.APIGatewayProxyResponse{
-		StatusCode: http.StatusPermanentRedirect,
+		StatusCode: http.StatusFound,
 		Headers: map[string]string{
 			"location": item.LongURL,
 		},

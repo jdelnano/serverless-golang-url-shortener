@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -11,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/gofrs/uuid"
+	"github.com/sqids/sqids-go"
 )
 
 // constant values that won't change
@@ -27,9 +29,10 @@ const (
 )
 
 // Request struct used in unmarshaling in order to
-// parse `url` field from request input
+// parse `url` and optional `alias` fields from request input
 type Request struct {
-	URL string `json:"url"`
+	URL   string `json:"url"`
+	Alias string `json:"alias"`
 }
 
 // Item struct to hold the info to be written
@@ -56,13 +59,24 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 	// instantiate AWS DyanmoDB client
 	svc := dynamodb.New(sess)
 
-	// generate unique identifier for new URL, based on random numbers
-	uuid, err := uuid.NewV4()
-	if err != nil {
-		return events.APIGatewayProxyResponse{Body: "Failed to generate UUID for new short URL", StatusCode: 500}, err
+	// use the provided alias as the short URL id, or generate one using sqids
+	var shortURLId string
+	if requestBody.Alias != "" {
+		shortURLId = requestBody.Alias
+	} else {
+		s, err := sqids.New()
+		if err != nil {
+			return events.APIGatewayProxyResponse{Body: "Failed to initialize sqids", StatusCode: 500}, err
+		}
+		n, err := rand.Int(rand.Reader, big.NewInt(1<<63-1))
+		if err != nil {
+			return events.APIGatewayProxyResponse{Body: "Failed to generate random number for short URL", StatusCode: 500}, err
+		}
+		shortURLId, err = s.Encode([]uint64{n.Uint64()})
+		if err != nil {
+			return events.APIGatewayProxyResponse{Body: "Failed to generate short URL id", StatusCode: 500}, err
+		}
 	}
-	// take just the first five characters from the generated uuid in order to keep urls short
-	shortURLId := uuid.String()[0:5]
 
 	// before creating new item in DynamoDB table,
 	// verify that the shortUrlId generated is unique and doesn't exist in DynamoDB

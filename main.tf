@@ -142,6 +142,9 @@ resource "aws_api_gateway_model" "shorten" {
 	"properties": {
 		"url": {
 			"type": "string"
+		},
+		"alias": {
+			"type": "string"
 		}
 	},
 	"required": ["url"]
